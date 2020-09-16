@@ -1,0 +1,10 @@
+﻿{
+  "profiles": {
+    "SportsConsumerService": {
+      "commandName": "Project",
+      "environmentVariables": {
+        "DOTNET_ENVIRONMENT": "Development"
+      }
+    }
+  }
+}
