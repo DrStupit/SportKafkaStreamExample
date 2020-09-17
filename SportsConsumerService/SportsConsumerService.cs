@@ -15,8 +15,15 @@ namespace SportsConsumerService
     public class SportsConsumerService : BackgroundService
     {
         private ConsumerConfig _config;
+        private RedisConnection _connection;
+        private SignalRHub _hub;
+
         public SportsConsumerService()
         {
+            // ToDo: Add all configs to Service appsettings.json
+            this._connection = new RedisConnection("localhost:6379");
+            this._hub = new SignalRHub();
+
             var config = new ConsumerConfig()
             {
                 BootstrapServers = "localhost:9092",
@@ -32,6 +39,13 @@ namespace SportsConsumerService
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            // so basically, at this point the message is already in the topic, and we can handle the data how we please.
+            // var message above is the JSON object/ or can be Serialized into JSON to be consumed and can be pushed to couhcbase, sql, signalr at our own will - without slowing things down.
+            // We can have n-number of consumers listening for topics eg: live in-play: fixtureSnapshotsTopic & updateTopic.
+            // So the same producer can push to 2 different topics i.e. processSnapshot & processSnapshotUpdate.
+            // We will create a new consumer group, which can contain a SnapshotConsumer & UpdateMarketConsumer (odd, suspensions etc)  
+            // One of the above Consumers can send data to signalr and the other to Couchbase
+
             // New up a Producer class 
             var consumer = new ConsumerBuilder<string, string>(this._config)
                 .SetErrorHandler(Handle_Error)
@@ -39,11 +53,11 @@ namespace SportsConsumerService
                 .SetStatisticsHandler(Handle_Stats)
                 .Build();
 
+            // Topic Name we listening to for data streams from Kafka
             consumer.Subscribe("betapisports");
 
             try
             {
-                RedisConnection connection = new RedisConnection("localhost:6379");
                 var commitCounter = 0;
                 while (!stoppingToken.IsCancellationRequested)
                 {
@@ -51,13 +65,10 @@ namespace SportsConsumerService
                     var consumeResult = consumer.Consume(stoppingToken);
                     var message = consumeResult.Message.Value;
                     var serializedObject = JsonConvert.DeserializeObject<SyXSport>(message);
-                    connection.SaveKeyValueToDB(serializedObject.Id.ToString(), message, 0, 480);
-                    // so basically, at this point the message is already in the topic, and we can handle the data how we please.
-                    // var message above is the JSON object/4 or can be Serialized into JSON to be consumed and can be pushed to couhcbase, sql, signalr at our own will - without slowing things down.
-                    // We can have n-number of consumers listening for topics eg: live in-play: fixtureSnapshotsTopic & updateTopic.
-                    // So the same producer can push to 2 different topics i.e. processSnapshot & processSnapshotUpdate.
-                    // We will create a new consumer group, which can contain a SnapshotConsumer & UpdateMarketConsumer (odd, suspensions etc)  
-                    // One of the above Consumers can send data to signalr and the other to Couchbase
+                    // Store Sport JSON in Redis
+                    this._connection.SaveKeyValueToDB(serializedObject.Id.ToString(), message, 0, 480);
+                    // Broadcast Sport JSON using SignalR so UI can detect the change 
+                    await this._hub.SendMessage(message);
                     Console.WriteLine($"Message Consumed: TPO={consumeResult.Topic}-{consumeResult.Partition}-{consumeResult.Offset}, Value={message.ToString()}");
 
                     if (commitCounter >= 10)
