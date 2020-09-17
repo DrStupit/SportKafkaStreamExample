@@ -12,7 +12,7 @@ namespace BetAPILibrary
         private ProducerConfig _config;
         public KafkaProducer()
         {
-            var config = new ProducerConfig()
+            this._config = new ProducerConfig()
             {
                 BootstrapServers = "localhost:9092",
                 ClientId = "Producer 1",
@@ -24,8 +24,6 @@ namespace BetAPILibrary
                 EnableIdempotence = true,
                 StatisticsIntervalMs = 10000
             };
-
-            this._config = config;
         }
         public void SendMessageToKafka(List<SyXSport> sports)
         {

@@ -14,7 +14,6 @@ namespace SportProducer
         static void Main(string[] args)
         {
             Console.WriteLine("Bet API Sport");
-            //var listOfSports = new BetApiRequests().GetSyXSports();
             new KafkaProducer().SendMessageToKafka(new BetApiRequests().GetSyXSports());
         }
 
