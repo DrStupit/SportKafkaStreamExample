@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 using Confluent.Kafka;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using UtilitiesLibrary;
 
 namespace SportsConsumerService
 {
@@ -40,12 +41,14 @@ namespace SportsConsumerService
 
             try
             {
+                RedisConnection connection = new RedisConnection("localhost:6379");
                 var commitCounter = 0;
                 while (!stoppingToken.IsCancellationRequested)
                 {
                     commitCounter += 1;
                     var consumeResult = consumer.Consume(stoppingToken);
                     var message = consumeResult.Message.Value;
+                    connection.SaveKeyValueToDB(Guid.NewGuid().ToString(), message, 0, 480);
                     // so basically, at this point the message is already in the topic, and we can handle the data how we please.
                     // var message above is the JSON object/4 or can be Serialized into JSON to be consumed and can be pushed to couhcbase, sql, signalr at our own will - without slowing things down.
                     // We can have n-number of consumers listening for topics eg: live in-play: fixtureSnapshotsTopic & updateTopic.
